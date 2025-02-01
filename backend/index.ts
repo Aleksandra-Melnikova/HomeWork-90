@@ -1,63 +1,43 @@
 import express from 'express';
-import expressWs from 'express-ws';
-import cors from 'cors';
-import {WebSocket} from 'ws';
+import http from 'http';
+import WebSocket from 'ws';
 
 const app = express();
-expressWs(app);
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-const port = 8000;
-app.use(cors());
+const canvasWidth = 800;
+const canvasHeight = 600;
 
-export interface IncomingMessage {
-    type: string;
-    payload: string;
-}
+let pixelData: Array<{ x: number, y: number, color: string }> = [];
 
 
-const router = express.Router();
-const connectionClients: WebSocket[] = [];
+const updatePixelData = (x: number, y: number, color: string) => {
+    pixelData.push({ x, y, color });
+};
 
-router.ws('/chat',  (ws, req) => {
-    connectionClients.push(ws);
-    console.log('client connected! Client total - ', connectionClients.length);
+wss.on('connection', (ws: WebSocket) => {
+    console.log('Новый клиент подключился');
 
-    let username = 'Anonymous';
-    ws.on('message', (message) => {
-        try {
-            const decodedMessage = JSON.parse(message.toString()) as IncomingMessage;
+    ws.send(JSON.stringify(pixelData));
 
-            if( decodedMessage.type === 'SET_USERNAME' ) {
-                username = decodedMessage.payload;
-            } else if (decodedMessage.type === 'SEND_MESSAGE'){
-                connectionClients.forEach((clientWS) => {
-                    clientWS.send(JSON.stringify({
-                        type: 'NEW_MESSAGE',
-                        payload: {
-                            username: username,
-                            text: decodedMessage.payload,
-                        },
-                    }));
-                });
+    ws.on('message', (message: string) => {
+        const data = JSON.parse(message);
+        updatePixelData(data.x, data.y, data.color);
+
+        wss.clients.forEach((client: WebSocket) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(message);
             }
-        }
-        catch (e) {
-            ws.send(JSON.stringify({error: "Invalid message format"}));
-        }
-
-    })
-
-    ws.on('close', () => {
-        console.log('client disconnected!');
-        const index = connectionClients.indexOf(ws);
-        connectionClients.splice(index, 1);
+        });
     });
 
+    ws.on('close', () => {
+        console.log('Клиент отключился');
+    });
 });
 
-
-app.use(router);
-
-app.listen(port, () => {
-    console.log(`Server started on ${port} port!`);
+const port = 8000;
+server.listen(port, () => {
+    console.log(`Сервер запущен на http://localhost:${port}`);
 });
