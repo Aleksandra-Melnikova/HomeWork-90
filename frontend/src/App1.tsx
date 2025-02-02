@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [color, setColor] = useState("#000000");
   const ws = useRef<WebSocket | null>(null);
   let isDrawing: boolean = false;
 
@@ -11,12 +12,15 @@ const App: React.FC = () => {
       console.log("Подключено к серверу");
     };
     ws.current.onmessage = (event: MessageEvent): void => {
-      const data: { x: number; y: number }[] = JSON.parse(event.data);
+      const data: { x: number; y: number; color: string }[] = JSON.parse(
+        event.data,
+      );
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, 1000, 1000);
-        data.forEach((pixel: { x: number; y: number }) => {
+        data.forEach((pixel) => {
+          ctx.fillStyle = pixel.color;
           ctx.fillRect(pixel.x, pixel.y, 1, 1);
         });
       }
@@ -42,11 +46,11 @@ const App: React.FC = () => {
     if (ctx) {
       const x = event.nativeEvent.offsetX;
       const y = event.nativeEvent.offsetY;
-      ctx.lineTo(x, y);
-      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, 1, 1);
 
       if (ws.current) {
-        ws.current.send(JSON.stringify({ x, y }));
+        ws.current.send(JSON.stringify({ x, y, color }));
       }
     }
   };
@@ -62,6 +66,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleColorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setColor(event.target.value); // Изменяем состояние цвета
+  };
+
   return (
     <div
       style={{
@@ -72,16 +80,35 @@ const App: React.FC = () => {
         backgroundColor: "#f4f4f4",
       }}
     >
-      <canvas
-        ref={canvasRef}
-        width={500}
-        height={500}
-        style={{ border: "1px solid #000" }}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseOut={stopDrawing}
-      />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <label style={{ fontSize: "20px" }} htmlFor="color">
+          Выберите цвет
+        </label>
+        <input
+          style={{ margin: "20px", width: "100px", height: "50px" }}
+          id="color"
+          type="color"
+          value={color}
+          onChange={handleColorChange} // Обработчик изменения цвета
+        />
+        <canvas
+          ref={canvasRef}
+          width={500}
+          height={500}
+          style={{ border: "1px solid #000" }}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseOut={stopDrawing}
+        />
+      </div>
     </div>
   );
 };

@@ -12,7 +12,7 @@ app.use(cors());
 
 const router = express.Router();
 const connectionClients: WebSocket[] = [];
-let pixelData: Array<{ x: number, y: number }> = [];
+let pixelData: Array<{ x: number, y: number, color: string }> = [];
 
 router.ws('/canvas',  (ws, req) => {
     connectionClients.push(ws);
@@ -25,7 +25,7 @@ router.ws('/canvas',  (ws, req) => {
         ws.on('message', (message: any) => {
             try{
                 const data = JSON.parse(message);
-                pixelData.push({ x: data.x, y: data.y });
+                pixelData.push({ x: data.x, y: data.y,  color: data.color});
 
                 const updatedPixelData = JSON.stringify(pixelData);
 
